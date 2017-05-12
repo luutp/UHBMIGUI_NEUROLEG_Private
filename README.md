@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # UHBMIGUI_NEUROLEG
 
 This is a library to process EEG data acquired in the project Neuro Leg
@@ -132,3 +133,6 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 * Hat tip to anyone who's code was used
 * Inspiration
 * etc
+=======
+# UHBMIGUI_NEUROLEG_Private
+>>>>>>> 08061980a2f85821a2a31e00d2207cee70f2ab2a
