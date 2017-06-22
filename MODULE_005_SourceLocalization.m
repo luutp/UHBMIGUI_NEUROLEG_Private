@@ -100,7 +100,7 @@ eegsourcefilename = ['EEGsource-' strjoin(unique(subj),'-') '-Trial ' strtrial '
 studyfilename = strrep(eegsourcefilename,'-eeg.mat','-study.study');
 
 uh_ICcluster('datapath',currdir,'filelist',{myfile.filename},'editeeginfo',1,...
-    'makestudyfile',0,'clusternum',7,'visualize',1,'studyfilename',studyfilename);
+    'makestudyfile',1,'clusternum',7,'visualize',1,'studyfilename',studyfilename);
 EEGsource.STUDY = evalin('base','STUDY');
 EEGsource.ALLEEG = evalin('base','ALLEEG');
 eegsourcefile = class_FileIO('filedir',currdir,'filename',eegsourcefilename);
