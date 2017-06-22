@@ -94,6 +94,34 @@ else
     logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
 end
 
+function UHBMIGUI_EEG_RemoveEOG(handles,varargin)
+global gvar;
+[stacktrace, ~]=dbstack;
+thisFuncName=stacktrace(1).name;
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+fprintf('RUNNING: %s.\n',thisFuncName);
+%==
+EEGin = evalin('base','EEGraw'); % Run resample in the first step, all the other steps, use EEGprocess
+if uh_isvarexist('EEGclean')
+    evalin('base','clearvars EEGclean');
+end
+EEGout = EEGin;
+try
+EEGout.EEGcap = EEGin.EEGcap;
+catch
+    EEGout.EEGcap = evalin('base','mycap');
+end
+EEGout.data = EEGin.data;
+if isfield(EEGout.EEGcap.chlabel,'EOG')
+    EEGout.data(EEGout.EEGcap.chlabel.EOG,:) = []; % Remove EOG channel
+end
+EEGout.nbchan = length(EEGin.chanlocs);
+EEGout.chanlocs = EEGin.chanlocs;
+EEGout.reject = EEGin.reject;
+assignin('base','EEGprocess',EEGout);
+%====
+fprintf('DONE: %s.\n',thisFuncName);
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
 
 function UHBMIGUI_EEG_resample(handles,varargin)
 global gvar;
@@ -120,12 +148,17 @@ newrate = 100;
 resampledata = transpose(resample(transpose(double(EEGin.data)),newrate,EEGin.srate));
 EEGout = pop_importdata('setname','Sample EEG','data',resampledata,'nbchan',size(resampledata,1),'srate',newrate);
 EEGout.srate = newrate;
+EEGout.trigger = [EEGin.event.latency]/EEGin.srate;
 EEGout.chanlocs = EEGin.chanlocs;
+try
 EEGout.EEGcap = EEGin.EEGcap;
+catch
+    EEGout.EEGcap = evalin('base','mycap');
+end
 EEGout.reject = EEGin.reject;
-
 assignin('base','EEGprocess',EEGout);
 %====
+fprintf('DONE: %s.\n',thisFuncName);
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
 
 function UHBMIGUI_EEG_Hinf(handles,varargin)
@@ -219,6 +252,21 @@ filename = strrep(filename,trial,'T00');
 restmatfile = matfile(fullfile(myfile.filedir,[filename '.mat']));
 restEEGraw = restmatfile.EEGraw;
 baseline = restEEGraw.data;
+%
+ASRobj = class_ASR('input',EEGin,'cutoff',5,'baseline',baseline,'windowlen',0.5);
+EEGout = ASRobj.execute;
+assignin('base','EEGprocess',EEGout);
+%====
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
+function UHBMIGUI_EEG_ASRAvatar(handles,varargin)
+global gvar;
+[stacktrace, ~]=dbstack;
+thisFuncName=stacktrace(1).name;
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+%==
+EEGin = evalin('base','EEGprocess');
+baseline = EEGin.data(:,1*60*EEGin.srate:2*60*EEGin.srate); %1.5 mins of standing data;
 %
 ASRobj = class_ASR('input',EEGin,'cutoff',5,'baseline',baseline,'windowlen',0.5);
 EEGout = ASRobj.execute;
@@ -392,7 +440,9 @@ end
 EEGclean.icaact=EEGclean.icaweights*EEGclean.icasphere*EEGclean.data;
 EEGclean.chanlocs = EEGprocess.chanlocs;
 EEGclean.reject = EEGprocess.reject;
-EEGclean.reject.uh_EOG = mycap.chlabel.EOG;
+if isfield(mycap.chlabel,'EOG')
+    EEGclean.reject.uh_EOG = mycap.chlabel.EOG;
+end
 EEGclean.reject.uh_badchans = EEGprocess.reject.uh_badchannel;
 EEGclean.reject.uh_poorfit = rejectdip;
 EEGclean.reject.uh_nonbraincomps = nonbraincomps;
