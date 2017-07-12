@@ -138,6 +138,8 @@ set(handles.jcombo_dirlookup,'ActionPerformedCallback',{@jcombo_dirlookup_Callba
 set(handles.uitree_funclist,'NodeSelectedCallback',{@uitree_funclist_Callback,handles});
 % Setappdata
 setappdata(handles.figure,'handles',handles);
+assignin('base','uhbmigui_handles',handles)
+
 
 function jlistbox_filenameinput_Mouse_Callback(hObject,eventdata,handles)
 eventinf=get(eventdata);
@@ -405,6 +407,10 @@ for i=1:length(selrows)
         set(handles.popupmenu_currdir,'value',1);
         uijlist_setfiles(handles.jlistbox_filelist,handles.datadir{1},'type',{'.mat'},'search',{'-emg'},'exclude',{''});
         break;
+    elseif strfind(lower(funcname),'eegclean')
+        set(handles.popupmenu_currdir,'value',1);
+        uijlist_setfiles(handles.jlistbox_filelist,handles.datadir{1},'type',{'.mat'},'search',{'eeg'},'exclude',{'eegclean'});
+        break;
     elseif strfind(lower(funcname),'sourcelocalization.icclusteract')
         set(handles.popupmenu_currdir,'value',1);
         uijlist_setfiles(handles.jlistbox_filelist,handles.datadir{1},'type',{'.mat'},'search',{'EEGsource'},'exclude',{''});
@@ -415,7 +421,7 @@ for i=1:length(selrows)
         break;
     elseif strfind(lower(funcname),'sourcelocalization.iccluster')
         set(handles.popupmenu_currdir,'value',1);
-        uijlist_setfiles(handles.jlistbox_filelist,handles.datadir{1},'type',{'.mat'},'search',{'eeg'},'exclude',{'EEGsource-'});
+        uijlist_setfiles(handles.jlistbox_filelist,handles.datadir{1},'type',{'.mat'},'search',{'eeg'},'exclude',{'EEGsource-','-EEGclean','T00'});
         break;    
     else
         if strfind(lower(funcname),'eeg')
@@ -548,13 +554,18 @@ for i=1:length(handles.pathrun)
     pathrunopt=[];
     k=1;
     for j=1:size(handles.runopt,2)
-        if ~isempty(handles.runopt{i,j})
-            pathrunopt(k)=handles.runopt{i,j};
-            k=k+1;
+        try
+            if ~isempty(handles.runopt{i,j})
+                pathrunopt(k)=handles.runopt{i,j};
+                k=k+1;
+            end
+        catch
         end
     end
+    
     pathrunopt=sort(pathrunopt);
-    if ~isempty(pathrunfunc)
+    
+    if ~isempty(pathrunopt) && ~isempty(pathrunfunc)
         cmdstr=sprintf('mfilefunc=%s;',pathrunfunc);
         eval(cmdstr);
         cmdstr=sprintf('%s(handles,''filename'',filenameinput,''runopt'',[%s]);',mfilefunc,num2str(pathrunopt));
@@ -857,7 +868,7 @@ treepath='pathlist';
 %From mfile
 rootdir=dir('.\');
 j=1;
-filekeyword = handles.filekeyword
+filekeyword = handles.filekeyword;
 % find all filename with 'uhbmigui' in working directory.
 for i=1:length(rootdir)
     thisfile=rootdir(i).name;

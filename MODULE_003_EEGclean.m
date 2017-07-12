@@ -148,7 +148,7 @@ newrate = 100;
 resampledata = transpose(resample(transpose(double(EEGin.data)),newrate,EEGin.srate));
 EEGout = pop_importdata('setname','Sample EEG','data',resampledata,'nbchan',size(resampledata,1),'srate',newrate);
 EEGout.srate = newrate;
-EEGout.trigger = [EEGin.event.latency]/EEGin.srate;
+% EEGout.trigger = [EEGin.event.latency]/EEGin.srate;
 EEGout.chanlocs = EEGin.chanlocs;
 try
 EEGout.EEGcap = EEGin.EEGcap;
@@ -332,9 +332,9 @@ thisFuncName=stacktrace(1).name;
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
 %==
 EEGin = evalin('base','EEGprocess');
-if EEGin.reject.remove_badchannel_opt == 1
-    EEGin.chanlocs([EEGin.reject.uh_badchannel])=[];
-end
+% if EEGin.reject.remove_badchannel_opt == 1
+%     EEGin.chanlocs([EEGin.reject.uh_badchannel])=[];
+% end
 dipfitobj = class_dipfit('input',EEGin);
 EEGout = dipfitobj.execute;
 assignin('base','EEGprocess',EEGout);
@@ -356,9 +356,142 @@ rejectdip=find(poordippos);
 mycap = evalin('base','mycap');
 % EEGprocess.chanlocs = pop_chanedit(EEGprocess.chanlocs,'load',{mycap.locsfile.fullfilename,'filetype','autodetect'});
 % EEGprocess.chanlocs([EEGprocess.reject.uh_badchannel])=[];
-if EEGprocess.reject.remove_badchannel_opt == 1
-    EEGprocess.chanlocs([EEGprocess.reject.uh_badchannel])=[];
+% if EEGprocess.reject.remove_badchannel_opt == 1
+%     EEGprocess.chanlocs([EEGprocess.reject.uh_badchannel])=[];
+% end
+assignin('base','EEGprocess',EEGprocess);
+remdip = setdiff(1:length(EEGprocess.chanlocs),rejectdip); 
+dipplot(EEGprocess.dipfit.model(remdip),'mri',EEGprocess.dipfit.mrifile,'summary','on','num','on','verbose','off');
+hold on;
+% eyelim = [-51, -72;,...
+%           91,8];
+% plot3(90,eyelim(1,1),eyelim(1,2),'marker','o','markersize',8,'color','r');
+% plot3(90,eyelim(2,1),eyelim(2,2),'marker','o','markersize',8,'color','r');
+% line('xdata',[90 90],'ydata',eyelim(:,1),'zdata',eyelim(:,2),'color','r');
+if uh_isvarexist('EEGclean')
+        EEGclean = evalin('base','EEGclean');
+    if isfield(EEGclean.reject,'uh_nonbraincomps')
+        fprintf('Current Results: '); display(EEGclean.reject.uh_nonbraincomps); fprintf('\n');
+        uh_nonbraincomps = EEGclean.reject.uh_nonbraincomps;
+    else
+        uh_nonbraincomps = [];
+    end
+else 
+    uh_nonbraincomps = [];
 end
+uh_nonbraincomps = [];
+% Automatic detection
+autorej = 1;
+autorejcomp = [];
+if autorej == 1
+    maindir = uh_fileparts('fullpath',mfilename('fullpath'),'level',2);
+    mriboundfile = class_FileIO('fullfilename',...
+        fullfile(maindir,'uhlib\Graphics\GUI','uh_gui_mri_boundary_data.mat'));
+    mriboundfile.loadtows;
+    mribound = evalin('base','mribound');
+%     dipplot(EEGprocess.dipfit.model(remdip),'mri',EEGprocess.dipfit.mrifile,'summary','off','num','on','verbose','off');
+%     hold on;
+%     plot3(mribound.xy(:,1),mribound.xy(:,2),zeros(1,size(mribound.xy,1)),'color','r');
+%     plot3(zeros(1,size(mribound.yz,1)),mribound.yz(:,1),mribound.yz(:,2),'color','r');
+%     plot3(mribound.xz(:,1),zeros(1,size(mribound.xz,1)),mribound.xz(:,2),'color','r');
+    k = 1;
+    for i = 1 : length(remdip)
+        for j = 1 : 3
+            if j == 1
+                dipos = EEGprocess.dipfit.model(remdip(i)).posxyz([1,2]);
+                node = mribound.xy;
+            elseif j == 2
+                dipos = EEGprocess.dipfit.model(remdip(i)).posxyz([2,3]);
+                node = mribound.yz;
+            elseif j == 3
+                dipos = EEGprocess.dipfit.model(remdip(i)).posxyz([1,3]);
+                node = mribound.xz;
+            end
+            n = size(node,1);
+            cnect  = [(1:n-1)' (2:n)'; n 1];
+            diprej = inpoly(dipos,node,cnect);
+            if diprej == 0
+                autorejcomp(k) = remdip(i);
+                k = k + 1;
+                break;
+            end            
+        end
+    end
+    tempmodel = EEGprocess.dipfit.model;
+    rejtemp = [rejectdip, autorejcomp];
+    for i = 1 : length(rejtemp)
+        tempmodel(rejtemp(i)).posxyz = [0,0,0];
+        tempmodel(rejtemp(i)).momxyz = [0,0,0];
+    end    
+    dipplot(tempmodel,'mri',EEGprocess.dipfit.mrifile,'summary','off','num','on','verbose','off');
+    hold on;
+    plot3(mribound.xy(:,1),mribound.xy(:,2),zeros(1,size(mribound.xy,1)),'color','r');
+    plot3(zeros(1,size(mribound.yz,1)),mribound.yz(:,1),mribound.yz(:,2),'color','r');
+    plot3(mribound.xz(:,1),zeros(1,size(mribound.xz,1)),mribound.xz(:,2),'color','r');
+else
+    dipplot(EEGprocess.dipfit.model(remdip),'mri',EEGprocess.dipfit.mrifile,'summary','off','num','off','verbose','off');
+end
+% eyecomp = [];
+% for i = 1 : length(remdip)
+%     dipos = EEGprocess.dipfit.model(remdip(i)).posxyz([2,3]);
+%     mattest = eyelim - repmat(dipos,2,1);
+%     linetest = det(mattest);
+%     if linetest < 0
+%         eyecomp(j) = remdip(i);
+%         j = j + 1;
+%     end
+% end
+nonbraincomps = luu_selectcomps(EEGprocess,remdip,...
+    'rejcomp',unique([uh_nonbraincomps autorejcomp]));  
+if nonbraincomps == 0
+    EEGclean=pop_subcomp(EEGprocess,rejectdip,0); %0 dont ask for confirm
+else
+    EEGclean=pop_subcomp(EEGprocess,unique([rejectdip, nonbraincomps]),0); %0 dont ask for confirm
+end
+EEGclean.icaact=EEGclean.icaweights*EEGclean.icasphere*EEGclean.data;
+EEGclean.chanlocs = EEGprocess.chanlocs;
+EEGclean.reject = EEGprocess.reject;
+if isfield(mycap.chlabel,'EOG')
+    EEGclean.reject.uh_EOG = mycap.chlabel.EOG;
+end
+EEGclean.reject.uh_badchans = EEGprocess.reject.uh_badchannel;
+EEGclean.reject.uh_poorfit = rejectdip;
+EEGclean.reject.uh_nonbraincomps = nonbraincomps;
+EEGclean.poordipfit.model = poordipfit.model;
+assignin('base','EEGclean',EEGclean);
+evalin('base','clearvars -except mycap FileObj EEGclean EEGraw EEGprocess');
+
+allfig=findall(0,'type','figure');
+printfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_PRINT');
+avatarfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_AVATAR');
+neurolegfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_NEUROLEG');
+clcfig=setdiff(allfig,[printfig,avatarfig,neurolegfig]);
+close(clcfig);
+fprintf('DONE:%s.\n',thisFuncName);
+% Visualization;
+% figure;pop_topoplot(EEGclean,0,1:length(EEGclean.icachansind),'',0,1)
+% dipplot(EEGclean.dipfit.model,'mri',EEGclean.dipfit.mrifile,'summary','on')
+% --------
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
+function UHBMIGUI_EEG_RemoveICsAuto(handles,varargin)
+[stacktrace, ~]=dbstack;
+thisFuncName=stacktrace(1).name;
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+% --------
+EEGprocess = evalin('base','EEGprocess');
+% Dipfit to remove bad ICs.
+poordipfit.model  = dipfit_reject(EEGprocess.dipfit.model, 0.3);
+for i=1:length(poordipfit.model)
+    poordippos(i)= isempty(poordipfit.model(i).posxyz);
+end
+rejectdip=find(poordippos);
+mycap = evalin('base','mycap');
+% EEGprocess.chanlocs = pop_chanedit(EEGprocess.chanlocs,'load',{mycap.locsfile.fullfilename,'filetype','autodetect'});
+% EEGprocess.chanlocs([EEGprocess.reject.uh_badchannel])=[];
+% if EEGprocess.reject.remove_badchannel_opt == 1
+%     EEGprocess.chanlocs([EEGprocess.reject.uh_badchannel])=[];
+% end
 assignin('base','EEGprocess',EEGprocess);
 remdip = setdiff(1:length(EEGprocess.chanlocs),rejectdip); 
 dipplot(EEGprocess.dipfit.model(remdip),'mri',EEGprocess.dipfit.mrifile,'summary','on','num','on','verbose','off');
@@ -431,7 +564,8 @@ end
 %     end
 % end
 nonbraincomps = luu_selectcomps(EEGprocess,remdip,...
-    'rejcomp',unique([uh_nonbraincomps autorejcomp]));
+    'rejcomp',unique([uh_nonbraincomps autorejcomp]),...
+    'auto', 1);  
 if nonbraincomps == 0
     EEGclean=pop_subcomp(EEGprocess,rejectdip,0); %0 dont ask for confirm
 else

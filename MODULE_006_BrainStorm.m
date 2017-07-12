@@ -44,15 +44,28 @@ for i=1:length(funchdl)
     end
 end
 % For debugging. Only work for one trial data which are available in WS
-if nargin==0       %Press F5, No input argument
-    % Access UHBMI_AVATARGUI
-    [modulepath,~,~] = fileparts(mfilename('fullpath'));
-    [~,mainfigname,~] = fileparts(modulepath);
-    maingui=findall(0, '-depth',1, 'type','figure', 'Name',mainfigname);
-    handles=getappdata(maingui,'handles');
-    assignin('base','handles',handles);
-    hObjectCallback = get(handles.pushbutton_uitreerun, 'Callback');
-    hObjectCallback{1}(maingui,[],hObjectCallback{2:end}); % Run pushbutton_uitreerun Callback
+if nargin == 0       %Press F5, No input argument
+     % Access UHBMI_AVATARGUI     
+    uhbmigui_handles = evalin('base','uhbmigui_handles');
+    maingui=getappdata(0,uhbmigui_handles.figure.Name);
+    handles=getappdata(maingui,'handles');    
+    moduleList = fieldnames(uhbmigui_handles.FunctionList);
+    for i=1:length(moduleList)        
+        if strfind(mfilename, moduleList{i})
+            pathrows=handles.juitree_funclist.getRowForPath(handles.funclistpath{i});
+            break;
+        end
+    end    
+    selrows=handles.juitree_funclist.getSelectionRows;
+    runopt=selrows-pathrows;
+    for i=1:length(UHBMIFuncList)
+        for j=1:length(runopt)
+            if i==runopt(j)
+                cmdstr=sprintf('%s(handles);',UHBMIFuncList{i});
+                eval(cmdstr);
+            end
+        end
+    end
 else
     if getfunclist==1
         varargout{1}=UHBMIFuncList;
@@ -184,7 +197,7 @@ else
         if strcmpi(transleg{1},'R')
             lw2sa = gctime(saidx(1),1);            
         else
-            lw2sa = gctime(saidx(1),1);
+            lw2sa = gctime(saidx(1),3);
         end
         sabreakid = find(diff(saidx)>10);
         if ~isempty(sabreakid)            
@@ -219,10 +232,12 @@ thisFuncName=stacktrace(1).name;
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log,'useicon',handles.iconlist.action.play);
 fprintf('%s.\n',thisFuncName)
 %======
-[modulepath,~,~] = fileparts(mfilename('fullpath'));
-[~,mainfigname,~] = fileparts(modulepath);
-maingui=findall(0, '-depth',1, 'type','figure', 'Name',mainfigname);
-handles=getappdata(maingui,'handles');
+% [modulepath,~,~] = fileparts(mfilename('fullpath'));
+% [~,mainfigname,~] = fileparts(modulepath);
+% maingui=findall(0, '-depth',1, 'type','figure', 'Name',mainfigname);
+% handles=getappdata(maingui,'handles');
+uhbmigui_handles = evalin('base','uhbmigui_handles');
+mainfigname = uhbmigui_handles.figure.Name;
 selectedfiles=uigetjlistbox(handles.jlistbox_filelist);
 dirlist=cellstr(get(handles.popupmenu_currdir,'string'));
 currdir=dirlist{get(handles.popupmenu_currdir,'value')};
@@ -298,7 +313,7 @@ for i = 1 : length(selectedfiles)
     importoptions.UseEvents = 1;   
     importoptions.TimeRange = [0 sFile.header.Time(end)];
     importoptions.events = sFile.events;    
-    importoptions.EventsTimeRange = [-3 1];
+    importoptions.EventsTimeRange = [-3 3];
     importoptions.SplitLength = length(sFile.events.samples);
     importoptions.ResampleFreq = 0;
     importoptions.EventsMode = 'ask';
@@ -355,10 +370,12 @@ logMessage(sprintf('%s',thisFuncName),handles.jedit_log,'useicon',handles.iconli
 fprintf('%s.\n',thisFuncName)
 %======
 fprintf('Copy Channel file and head model to @intra folder.\n');
-[modulepath,~,~] = fileparts(mfilename('fullpath'));
-[~,mainfigname,~] = fileparts(modulepath);
-maingui=findall(0, '-depth',1, 'type','figure', 'Name',mainfigname);
-handles=getappdata(maingui,'handles');
+% [modulepath,~,~] = fileparts(mfilename('fullpath'));
+% [~,mainfigname,~] = fileparts(modulepath);
+% maingui=findall(0, '-depth',1, 'type','figure', 'Name',mainfigname);
+% handles=getappdata(maingui,'handles');
+uhbmigui_handles = evalin('base','uhbmigui_handles');
+mainfigname = uhbmigui_handles.figure.Name;
 dirlist=cellstr(get(handles.popupmenu_currdir,'string'));
 currdir=dirlist{get(handles.popupmenu_currdir,'value')};
 HomeDir = fullfile(fileparts(fileparts(mfilename('fullpath'))),'brainstorm3');
@@ -376,12 +393,17 @@ for i = 3 : length(subjdir) % folder . and .. returned by dir function
     if subjdir(i).isdir == 1
         thissubjdir = subjdir(i).name;        
         orgdirname = fullfile(currdir,headmodeldirname,thissubjdir);
-        targetdir = fullfile(BrainstormDbDir,ProtocolName,'data',thissubjdir,'@intra');
+%         targetdir = fullfile(BrainstormDbDir,ProtocolName,'data',thissubjdir,'@intra');
+        targetdirlist = dir(fullfile(BrainstormDbDir, ProtocolName,'data',thissubjdir));
         headmodelfilelist = dir(orgdirname);
         if length(headmodelfilelist)>2
-            for j = 3 : length(headmodelfilelist)
+            for j = 3 : length(headmodelfilelist) % exclude . and .. copy 2 files channel.mat and openmeeg.mat
                 headmodelfile = fullfile(orgdirname,headmodelfilelist(j).name);
-                copyfile(headmodelfile,targetdir);
+                for k = 3 : length(targetdirlist)
+                    targetdir = fullfile(BrainstormDbDir, ProtocolName,'data',thissubjdir,...
+                        targetdirlist(k).name);
+                    copyfile(headmodelfile,targetdir);
+                end
             end
         end
     end
@@ -404,17 +426,19 @@ if isempty(brainstormfig) % If brainstorm is not running
     brainstorm; % Start Brainstorm
 end
 DbDir = bst_get('BrainstormDbDir');
-mainfignamepath = uh_fileparts('fullpath',mfilename('fullpath'),'level',1);
-[~,mainfigname,~] = fileparts(mainfignamepath);
+% mainfignamepath = uh_fileparts('fullpath',mfilename('fullpath'),'level',1);
+% [~,mainfigname,~] = fileparts(mainfignamepath);
+uhbmigui_handles = evalin('base','uhbmigui_handles');
+mainfigname = uhbmigui_handles.figure.Name;
 ProtocolName = ['Protocol_' mainfigname];
 %====
 % Time frequency analysis using Morlet
 % Find all the average files in the @intra folder for each subject
-sFiles = bst_getallfiles('protocolname',ProtocolName,'intra',1,'filetype','average');
+sFiles = bst_getallfiles('protocolname',ProtocolName,'intra',0,'filetype','data_LW2SA')
 % Process: Compute covariance (noise or data)
 sFiles_Noisecov = bst_process('CallProcess', 'process_noisecov', sFiles, [], ...
-    'baseline',       [-3, 0], ...
-    'datatimewindow', [-3, 0], ...
+    'baseline',       [-3, 3], ...
+    'datatimewindow', [-3, 3], ...
     'sensortypes',    'EEG', ...
     'target',         1, ...  % Noise covariance     (covariance over baseline time window)
     'dcoffset',       1, ...  % Block by block, to avoid effects of slow shifts in data
@@ -455,21 +479,22 @@ intraopt = get_varargin(varargin,'intra',0); % Find avg subject or @intra folder
 DbDir = bst_get('BrainstormDbDir');
 numsubj = bst_get('SubjectCount');
 f = 1;
+sFiles = {};
 for i = 1 : numsubj
     thissubj = bst_get('Subject',i);
-    thissubjname = thissubj.Name;    
+    thissubjname = thissubj.Name;
     subjdir = fullfile(DbDir,ProtocolName,'data',thissubjname); %Protocol_UHBMIGUI_NEUROLEG\data\AB_UH_xx
     subjdirlist = dir(subjdir);
     if intraopt == 1
-        subjdirkey = '@intra';
+        subjdirkey = '@intra'; % Compute sLoreta for average file in @intra folder
     else
         subjdirkey = thissubjname;
     end
-    for j = 1 : length(subjdirlist)        
+    for j = 1 : length(subjdirlist)                
         if strfind(subjdirlist(j).name,subjdirkey)
             %fprintf('%s/%s.\n',thissubjname,subjdirlist(j).name);
             subjdatadir = dir(fullfile(subjdir,subjdirlist(j).name)); %Protocol_UHBMIGUI_NEUROLEG\data\AB_UH_xx\AB_UH_xx, @intra
-            for k = 1 : length(subjdatadir)
+            for k = 1 : length(subjdatadir)                                
                 if strfind(subjdatadir(k).name,filetype)
                     %fprintf('%s/%s/%s.\n',thissubjname,subjdirlist(j).name,subjdatadir(k).name);
                     temp = fullfile(thissubjname,subjdirlist(j).name,subjdatadir(k).name);
