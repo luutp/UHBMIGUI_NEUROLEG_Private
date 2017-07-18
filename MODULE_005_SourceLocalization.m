@@ -99,8 +99,8 @@ strtrial = strjoin(unique(trial),'-');
 eegsourcefilename = ['EEGsource-' strjoin(unique(subj),'-') '-Trial ' strtrial '-eeg.mat'];
 studyfilename = strrep(eegsourcefilename,'-eeg.mat','-study.study');
 
-uh_ICcluster('datapath',currdir,'filelist',{myfile.filename},'editeeginfo',0,...
-    'makestudyfile',1,'reloadstudyfile',0, 'clusternum',7,'visualize',1,'studyfilename',studyfilename);
+uh_ICcluster('datapath',currdir,'filelist',{myfile.filename},'editeeginfo',1,...
+    'makestudyfile',1,'reloadstudyfile',1, 'clusternum',7,'visualize',1,'studyfilename',studyfilename);
 
 EEGsource.STUDY = evalin('base','STUDY');
 EEGsource.ALLEEG = evalin('base','ALLEEG');
