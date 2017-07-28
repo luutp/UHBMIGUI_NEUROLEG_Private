@@ -354,11 +354,13 @@ for i=1:length(poordipfit.model)
 end
 rejectdip=find(poordippos);
 mycap = evalin('base','mycap');
+
 % EEGprocess.chanlocs = pop_chanedit(EEGprocess.chanlocs,'load',{mycap.locsfile.fullfilename,'filetype','autodetect'});
 % EEGprocess.chanlocs([EEGprocess.reject.uh_badchannel])=[];
 % if EEGprocess.reject.remove_badchannel_opt == 1
 %     EEGprocess.chanlocs([EEGprocess.reject.uh_badchannel])=[];
 % end
+
 assignin('base','EEGprocess',EEGprocess);
 remdip = setdiff(1:length(EEGprocess.chanlocs),rejectdip); 
 dipplot(EEGprocess.dipfit.model(remdip),'mri',EEGprocess.dipfit.mrifile,'summary','on','num','on','verbose','off');
@@ -379,7 +381,7 @@ if uh_isvarexist('EEGclean')
 else 
     uh_nonbraincomps = [];
 end
-uh_nonbraincomps = [];
+% uh_nonbraincomps = [];
 % Automatic detection
 autorej = 1;
 autorejcomp = [];
@@ -442,7 +444,7 @@ end
 %     end
 % end
 nonbraincomps = luu_selectcomps(EEGprocess,remdip,...
-    'rejcomp',unique([uh_nonbraincomps autorejcomp]));  
+    'rejcomp',unique([uh_nonbraincomps autorejcomp]),'nosedir','+Y');  
 if nonbraincomps == 0
     EEGclean=pop_subcomp(EEGprocess,rejectdip,0); %0 dont ask for confirm
 else
@@ -501,17 +503,17 @@ hold on;
 % plot3(90,eyelim(1,1),eyelim(1,2),'marker','o','markersize',8,'color','r');
 % plot3(90,eyelim(2,1),eyelim(2,2),'marker','o','markersize',8,'color','r');
 % line('xdata',[90 90],'ydata',eyelim(:,1),'zdata',eyelim(:,2),'color','r');
-if uh_isvarexist('EEGclean')
-        EEGclean = evalin('base','EEGclean');
-    if isfield(EEGclean.reject,'uh_nonbraincomps')
-        fprintf('Current Results: '); display(EEGclean.reject.uh_nonbraincomps); fprintf('\n');
-        uh_nonbraincomps = EEGclean.reject.uh_nonbraincomps;
-    else
-        uh_nonbraincomps = [];
-    end
-else 
-    uh_nonbraincomps = [];
-end
+% if uh_isvarexist('EEGclean')
+%         EEGclean = evalin('base','EEGclean');
+%     if isfield(EEGclean.reject,'uh_nonbraincomps')
+%         fprintf('Current Results: '); display(EEGclean.reject.uh_nonbraincomps); fprintf('\n');
+%         uh_nonbraincomps = EEGclean.reject.uh_nonbraincomps;
+%     else
+%         uh_nonbraincomps = [];
+%     end
+% else 
+%     uh_nonbraincomps = [];
+% end
 uh_nonbraincomps = [];
 % Automatic detection
 autorej = 1;
@@ -565,7 +567,7 @@ end
 % end
 nonbraincomps = luu_selectcomps(EEGprocess,remdip,...
     'rejcomp',unique([uh_nonbraincomps autorejcomp]),...
-    'auto', 1);  
+    'auto', 1, 'nosedir','+Y');  
 if nonbraincomps == 0
     EEGclean=pop_subcomp(EEGprocess,rejectdip,0); %0 dont ask for confirm
 else
