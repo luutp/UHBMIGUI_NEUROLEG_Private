@@ -434,7 +434,7 @@ ProtocolName = ['Protocol_' mainfigname];
 %====
 % Time frequency analysis using Morlet
 % Find all the average files in the @intra folder for each subject
-sFiles = bst_getallfiles('protocolname',ProtocolName,'intra',0,'filetype','data_LW2SA')
+sFiles = bst_getallfiles('protocolname',ProtocolName,'intra',0,'filetype','data_LW2SA');
 % Process: Compute covariance (noise or data)
 sFiles_Noisecov = bst_process('CallProcess', 'process_noisecov', sFiles, [], ...
     'baseline',       [-3, 3], ...
