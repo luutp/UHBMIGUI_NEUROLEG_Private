@@ -22,7 +22,7 @@
 % _University of Houston_
 
 function varargout=MODULE_003_EEGclean(handles,varargin)
-global gvar; 
+global gvar;
 gvar=def_gvar;
 getfunclist=0;
 runopt=0;
@@ -44,34 +44,41 @@ for i=1:length(funchdl)
     end
 end
 % For debugging. Only work for one trial data which are available in WS
-if nargin==0       %Press F5, No input argument
-    % Access UHBMI_AVATARGUI
-    maingui=getappdata(0,handles.mainfigname);
-    handles=getappdata(maingui,'handles');
-    for i=1:length(gvar.mfilesequence)
-        if strcmpi(gvar.mfilesequence{i},mfilename)
+if nargin == 0       %Press F5, No input argument
+     % Access UHBMI_AVATARGUI         
+    maingui=getappdata(0,'UHBMIGUI_NEUROLEG');
+    handles=getappdata(maingui,'handles');   
+    dirlist=cellstr(get(handles.popupmenu_currdir,'string'));
+    currdir=dirlist{get(handles.popupmenu_currdir,'value')};
+    filename = fullfile(currdir,uigetjlistbox(handles.jlistbox_filelist,'select','selected'));
+    moduleList = fieldnames(handles.FunctionList);
+    for i=1:length(moduleList)        
+        if strfind(mfilename, moduleList{i})
             pathrows=handles.juitree_funclist.getRowForPath(handles.funclistpath{i});
             break;
         end
-    end
+    end    
     selrows=handles.juitree_funclist.getSelectionRows;
     runopt=selrows-pathrows;
-    for i=1:length(UHBMIFuncList)
-        for j=1:length(runopt)
-            if i==runopt(j)
-                cmdstr=sprintf('%s(handles);',UHBMIFuncList{i});
-                eval(cmdstr);
-            end
+    [stacktrace, ~]=dbstack;
+    thisFuncName=stacktrace(1).name;
+    logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.brain);
+    groupopt = 0;
+    for i = 1 : length(runopt)
+        if strfind(UHBMIFuncList{runopt(i)},'Group')
+            groupopt = 1;
         end
     end
-else
-    if getfunclist==1
-        varargout{1}=UHBMIFuncList;
-        return;
+    if groupopt == 1
+        for i=1:length(UHBMIFuncList)
+            for j=1:length(runopt)
+                if i==runopt(j)
+                    cmdstr=sprintf('%s(handles,''filename'',filename)',UHBMIFuncList{i});
+                    eval(cmdstr);
+                end
+            end
+        end
     else
-        [stacktrace, ~]=dbstack;
-        thisFuncName=stacktrace(1).name;
-        logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.brain);
         for f=1:length(filename)
             thisfilename=filename{f};
             logMessage(sprintf('%s',thisfilename),handles.jedit_log, 'useicon',handles.iconlist.file.mat);
@@ -79,7 +86,7 @@ else
             evalin('base','clearvars -except handles filename gvar');
             
             myfile = class_FileIO('fullfilename',thisfilename);
-            myfile.loadtows;            
+            myfile.loadtows;
             for i=1:length(UHBMIFuncList)
                 for j=1:length(runopt)
                     if i==runopt(j)
@@ -90,35 +97,130 @@ else
             end
             logMessage(sprintf('%s',thisfilename),handles.jedit_log, 'useicon',handles.iconlist.status.check);
         end
+    end                
+else
+    if getfunclist==1
+        varargout{1}=UHBMIFuncList;
+        return;
+    else
+        [stacktrace, ~]=dbstack;
+        thisFuncName=stacktrace(1).name;
+        logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.brain);
+        groupopt = 0;
+        for i = 1 : length(runopt)
+            if strfind(UHBMIFuncList{runopt(i)},'Group')
+                groupopt = 1;
+            end
+        end
+        if groupopt == 1
+            for i=1:length(UHBMIFuncList)
+                for j=1:length(runopt)
+                    if i==runopt(j)
+                        cmdstr=sprintf('%s(handles,''filename'',filename)',UHBMIFuncList{i});
+                        eval(cmdstr);
+                    end
+                end
+            end
+        else
+            for f=1:length(filename)
+                thisfilename=filename{f};
+                logMessage(sprintf('%s',thisfilename),handles.jedit_log, 'useicon',handles.iconlist.file.mat);
+                uiupdatestatbar(handles,f,length(filename));
+                evalin('base','clearvars -except handles filename gvar');                
+                myfile = class_FileIO('fullfilename',thisfilename);
+                myfile.loadtows;
+                for i=1:length(UHBMIFuncList)
+                    for j=1:length(runopt)
+                        if i==runopt(j)
+                            cmdstr=sprintf('%s(handles,''filename'',thisfilename)',UHBMIFuncList{i});
+                            eval(cmdstr);
+                        end
+                    end
+                end
+                logMessage(sprintf('%s',thisfilename),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+            end
+        end
     end
     logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
 end
 
-function UHBMIGUI_EEG_RemoveEOG(handles,varargin)
+% function UHBMIGUI_EEG_RemoveEOG(handles,varargin)
+% global gvar;
+% [stacktrace, ~]=dbstack;
+% thisFuncName=stacktrace(1).name;
+% logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+% fprintf('RUNNING: %s.\n',thisFuncName);
+% %==
+% EEGin = evalin('base','EEGraw'); % Run resample in the first step, all the other steps, use EEGprocess
+% if uh_isvarexist('EEGclean')
+%     evalin('base','clearvars EEGclean');
+% end
+% EEGout = EEGin;
+% try
+% EEGout.EEGcap = EEGin.EEGcap;
+% catch
+%     EEGout.EEGcap = evalin('base','mycap');
+% end
+% EEGout.data = EEGin.data;
+% if isfield(EEGout.EEGcap.chlabel,'EOG')
+%     EEGout.data(EEGout.EEGcap.chlabel.EOG,:) = []; % Remove EOG channel
+% end
+% EEGout.nbchan = length(EEGin.chanlocs);
+% EEGout.chanlocs = EEGin.chanlocs;
+% EEGout.reject = EEGin.reject;
+% assignin('base','EEGprocess',EEGout);
+% %====
+% fprintf('DONE: %s.\n',thisFuncName);
+% logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
+function UHBMIGUI_EEG_SegmentLWSA(handles,varargin)
 global gvar;
 [stacktrace, ~]=dbstack;
 thisFuncName=stacktrace(1).name;
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
 fprintf('RUNNING: %s.\n',thisFuncName);
 %==
-EEGin = evalin('base','EEGraw'); % Run resample in the first step, all the other steps, use EEGprocess
-if uh_isvarexist('EEGclean')
-    evalin('base','clearvars EEGclean');
+fullfilename = get_varargin(varargin,'filename','filename');
+inputfile = class_FileIO('fullfilename',fullfilename);
+eegfilename = inputfile.filename;
+iden = strfind(eegfilename,'-eeg');
+eegfilename(iden:end) = [];
+kinfilename = fullfile(inputfile.filedir,[eegfilename, '-kin.mat']);
+kinmatfile = matfile(kinfilename);
+kin = kinmatfile.kin;
+gc = kin.gc;
+label = gc.label; gctime = gc.time; transleg = gc.transleg;
+assignin('base','gc',gc);
+% find LW3F and SA time
+lw3fidx = find(cellfun(@isempty,strfind(label,'LW3F')) == 0);
+saidx = find(cellfun(@isempty,strfind(label,'SA')) == 0);
+lwbreak = find(diff(lw3fidx)>2);
+sabreak = find(diff(saidx)>2);
+gcloop = [lw3fidx(1), saidx(sabreak)-1];
+if ~isempty(lwbreak)
+    gcloop = [gcloop; [lw3fidx(lwbreak+1), saidx(end-1)]];
 end
-EEGout = EEGin;
-try
-EEGout.EEGcap = EEGin.EEGcap;
-catch
-    EEGout.EEGcap = evalin('base','mycap');
+EEGraw = evalin('base','EEGraw');
+timeline = 0:1/EEGraw.srate:1/EEGraw.srate*(EEGraw.pnts-1);
+for i = 1 : size(gcloop,1)
+    for j = 1 : size(gcloop,2)
+        if j == 1, gctimeloop(i,j) = gctime(gcloop(i,j),1);
+        else, gctimeloop(i,j) = gctime(gcloop(i,j),end);
+        end
+    end
 end
-EEGout.data = EEGin.data;
-if isfield(EEGout.EEGcap.chlabel,'EOG')
-    EEGout.data(EEGout.EEGcap.chlabel.EOG,:) = []; % Remove EOG channel
+for i = 1:size(gctimeloop,1)
+    looppos = uh_getmarkerpos(gctimeloop(i,:),timeline);
+    EEGloop = EEGraw;
+    EEGloop.data = EEGloop.data(:,looppos(1):looppos(end));
+    EEGloop.pnts = size(EEGloop.data,2);
+    EEGloop.times = timeline(looppos(1):looppos(end));
+    assignin('base','EEGraw',EEGloop);
+    evalin('base','clearvars -except mycap FileObj EEGraw');        
+    myfile = class_FileIO('filedir',inputfile.filedir,...
+                          'filename',['L' inputfile.filename sprintf('-Loop%d',i)]);
+    myfile.savews;
 end
-EEGout.nbchan = length(EEGin.chanlocs);
-EEGout.chanlocs = EEGin.chanlocs;
-EEGout.reject = EEGin.reject;
-assignin('base','EEGprocess',EEGout);
 %====
 fprintf('DONE: %s.\n',thisFuncName);
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
@@ -130,21 +232,15 @@ thisFuncName=stacktrace(1).name;
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
 fprintf('RUNNING: %s.\n',thisFuncName);
 %==
-% try
-%     EEGin = evalin('base','EEGprocess');
-% catch
-    EEGin = evalin('base','EEGraw'); % Run resample in the first step, all the other steps, use EEGprocess
-% end
-% Remove EEGclean in the first step if it is exist.
-if uh_isvarexist('EEGclean')
-    evalin('base','clearvars EEGclean');
-end
+evalin('base','clearvars -except mycap FileObj EEGraw');        
+
+EEGin = evalin('base','EEGraw'); % Run resample in the first step, all the other steps, use EEGprocess
 try
     EEGout = eeg_emptyset;
 catch
     uh_fprintf('Error: Include and Initiate EEGLAB','color','r');
 end
-newrate = 100;
+newrate = 200;
 resampledata = transpose(resample(transpose(double(EEGin.data)),newrate,EEGin.srate));
 EEGout = pop_importdata('setname','Sample EEG','data',resampledata,'nbchan',size(resampledata,1),'srate',newrate);
 EEGout.srate = newrate;
@@ -221,7 +317,6 @@ assignin('base','EEGprocess',EEGout);
 fprintf('DONE: %s.\n',thisFuncName);
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
 
-
 function UHBMIGUI_EEG_CAR(handles,varargin)
 global gvar;
 [stacktrace, ~]=dbstack;
@@ -234,6 +329,19 @@ EEGout = carobj.execute;
 assignin('base','EEGprocess',EEGout);
 %====
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
+function UHBMIGUI_EEG_CleanLine(handles,varargin)
+global gvar;
+[stacktrace, ~]=dbstack;
+thisFuncName=stacktrace(1).name;
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+%==
+EEGin = evalin('base','EEGprocess');
+EEGout = cleanline(EEGin);
+assignin('base','EEGprocess',EEGout);
+%====
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
 
 function UHBMIGUI_EEG_ASR(handles,varargin)
 global gvar;
@@ -259,16 +367,14 @@ assignin('base','EEGprocess',EEGout);
 %====
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
 
-function UHBMIGUI_EEG_ASRAvatar(handles,varargin)
+function UHBMIGUI_EEG_ASRBaselineAll(handles,varargin)
 global gvar;
 [stacktrace, ~]=dbstack;
 thisFuncName=stacktrace(1).name;
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
 %==
 EEGin = evalin('base','EEGprocess');
-baseline = EEGin.data(:,1*60*EEGin.srate:2*60*EEGin.srate); %1.5 mins of standing data;
-%
-ASRobj = class_ASR('input',EEGin,'cutoff',5,'baseline',baseline,'windowlen',0.5);
+ASRobj = class_ASR('input',EEGin,'cutoff',5,'windowlen',0.5,'ref_fullopt','off');
 EEGout = ASRobj.execute;
 assignin('base','EEGprocess',EEGout);
 %====
