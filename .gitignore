@@ -5,3 +5,4 @@ Includes/*.mat
 sniptest.py
 test.m
 test.m~
+IMU_TestResult.mat

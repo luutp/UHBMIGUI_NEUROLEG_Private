@@ -280,6 +280,48 @@ fprintf('DONE:%s.\n',thisFuncName);
 fprintf('DONE: %s.\n',thisFuncName);
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
 
+function UHBMIGUI_EEG_AutoValidateBAICs(handles,varargin)
+global gvar;
+[stacktrace, ~]=dbstack;
+thisFuncName=stacktrace(1).name;
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+fprintf('RUNNING: %s.\n',thisFuncName);
+%==
+mycap = evalin('base','mycap');
+% Find ID number of input file
+EEGprocess = evalin('base','EEGprocess');
+BAlist = EEGprocess.BrodmannID;
+BAopt = 6; % SMA area;
+matchdip = transpose(find(BAlist==BAopt)); % selectcomps only accept row vector
+EEG_SMA = [];
+if ~isempty(matchdip)
+    nonbraincomps = [];
+    rejcomp = [setdiff(1:length(EEGprocess.dipfit.model),matchdip),nonbraincomps];
+    if length(rejcomp) < length(EEGprocess.dipfit.model)
+        EEGclean=pop_subcomp(EEGprocess,rejcomp,0); %0 dont ask for confirm
+        EEGclean.icaact=EEGclean.icaweights*EEGclean.icasphere*EEGclean.data;
+        EEGclean.chanlocs = EEGprocess.chanlocs;
+        EEGclean.reject = EEGprocess.reject;
+        if isfield(mycap.chlabel,'EOG')
+            EEGclean.reject.uh_EOG = mycap.chlabel.EOG;
+        end
+        EEGclean.reject.uh_badchans = EEGprocess.reject.uh_badchannel;
+        EEGclean.reject.uh_nonbraincomps = nonbraincomps;        
+        EEG_SMA = EEGclean;
+    end
+end
+assignin('base','EEG_SMA',EEG_SMA);
+evalin('base','clearvars -except mycap FileObj EEG_SMA EEGraw EEGprocess');
+
+allfig=findall(0,'type','figure');
+neurolegfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_NEUROLEG');
+clcfig=setdiff(allfig,[neurolegfig]);
+close(clcfig);
+fprintf('DONE:%s.\n',thisFuncName);
+%====
+fprintf('DONE: %s.\n',thisFuncName);
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
 function UHBMIGUI_EEG_GroupMakeCluster(handles,varargin)
 global gvar;
 [stacktrace, ~]=dbstack;
@@ -303,6 +345,7 @@ for i = 1 : length(selectedfiles)
                 BAcluster.model(k).(modelfieldnames{f}) = thisBA.dipfit.model(j).(modelfieldnames{f});
             end
             BAcluster.model(k).filename = selectedfiles{i};
+            BAcluster.model(k).dipID = k;
             BAcluster.model(k).ICact = thisBA.icaact(j,:);
             k = k + 1;
         end

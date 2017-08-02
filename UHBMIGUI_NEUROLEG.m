@@ -972,6 +972,7 @@ jMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F, ActionEvent.CTRL_
 hjMenuItemFunc = handle(jMenuItem,'CallbackProperties');
 set(hjMenuItemFunc,'ActionPerformedCallback',{@jMenuItemFunc_Callback,handles});
 jSubMenu.add(jMenuItem);
+
 jMenuItem=javax.swing.JMenuItem('Open...',ImageIcon(icons.action.open));
 jMenuItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, ActionEvent.CTRL_MASK));
 hjMenuItemOpen = handle(jMenuItem,'CallbackProperties');
