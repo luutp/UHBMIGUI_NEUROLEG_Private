@@ -134,8 +134,6 @@ for i=1:length(selectedfiles)
 end
 txtoutput = class_FileIO('filedir',currdir,'filename',sprintf('%s-Talairach_All_Dipoles',gvar.timenow.ymd),'ext','.txt');
 txtoutput.mat2txt(alldippos);
-txtoutput2 = class_FileIO('filedir',currdir,'filename',sprintf('Talairach_All_Dipoles'),'ext','.txt');
-copyfile(txtoutput.fullfilename, txtoutput2.fullfilename)
 winopen(txtoutput.fullfilename);
 %====
 fprintf('DONE: %s.\n',thisFuncName);
@@ -151,7 +149,9 @@ fprintf('RUNNING: %s.\n',thisFuncName);
 selectedfiles=uigetjlistbox(handles.jlistbox_filelist);
 dirlist=cellstr(get(handles.popupmenu_currdir,'string'));
 currdir=dirlist{get(handles.popupmenu_currdir,'value')};
-txtfile = class_FileIO('filedir',currdir,'filename','Talairach_All_Dipoles.td.txt');
+% Find textfile;
+talfilename = uh_listfile(currdir,'filetype','.txt','keyword','.td','select','last');
+txtfile = class_FileIO('filedir',currdir,'filename',talfilename{1});
 if uh_isvarexist('BAidi')
     fprintf('Loading Broadmann Area ID for all trials.\n');
     BAid = evalin('base','BAid');
@@ -204,8 +204,6 @@ BAdipmap.trial.BAid = BAval;
 assignin('base','BAdipmap',BAdipmap);
 outputfile = class_FileIO('filedir',currdir,'filename',sprintf('%s-DIPROI_dipmap.mat',gvar.timenow.ymd));
 outputfile.savevars(BAdipmap);
-outputfile2 = class_FileIO('filedir',currdir,'filename',sprintf('DIPROI_dipmap.mat'));
-copyfile(outputfile.fullfilename,outputfile2.fullfilename);
 %====
 fprintf('DONE: %s.\n',thisFuncName);
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
@@ -225,7 +223,8 @@ fullfilename = get_varargin(varargin,'filename');
 [~,filename] = fileparts(fullfilename);
 fileid = find(~cellfun('isempty',strfind(alllistfiles,filename)));
 % Load BA map.
-matfiledata = matfile(fullfile(currdir,'DIPROI_dipmap.mat'));
+dipmatfile = uh_listfile(currdir,'filetype','.mat','keyword','dipmap','select','last');
+matfiledata = matfile(fullfile(currdir,dipmatfile{1}));
 BAdipmap = matfiledata.BAdipmap;
 % Add BA variable to EEGprocess
 EEGprocess = evalin('base','EEGprocess');
@@ -347,6 +346,11 @@ for i = 1 : length(selectedfiles)
             BAcluster.model(k).filename = selectedfiles{i};
             BAcluster.model(k).dipID = k;
             BAcluster.model(k).ICact = thisBA.icaact(j,:);
+            BAcluster.model(k).dipnum = j;
+            BAcluster.model(k).icawinv = thisBA.icawinv(:,j);
+            BAcluster.model(k).chanlocs = thisBA.chanlocs;
+            BAcluster.model(k).chaninfo = thisBA.chaninfo;
+            BAcluster.model(k).srate = thisBA.srate;
             k = k + 1;
         end
         if ~isfield(BAcluster,'mrifile')

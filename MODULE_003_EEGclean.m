@@ -240,7 +240,7 @@ try
 catch
     uh_fprintf('Error: Include and Initiate EEGLAB','color','r');
 end
-newrate = 200;
+newrate = 100;
 resampledata = transpose(resample(transpose(double(EEGin.data)),newrate,EEGin.srate));
 EEGout = pop_importdata('setname','Sample EEG','data',resampledata,'nbchan',size(resampledata,1),'srate',newrate);
 EEGout.srate = newrate;
