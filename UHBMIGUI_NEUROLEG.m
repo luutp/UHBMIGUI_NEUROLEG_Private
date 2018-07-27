@@ -582,6 +582,7 @@ end
 % thisfig=findall(0, '-depth',1, 'type','figure', 'Name',mfilename);
 % allfig=findall(0, '-depth',1, 'type','figure');
 % close(setdiff(allfig,thisfig));
+% fid = fopen('processLog.txt','w');
 logMessage(sprintf('%s',mfilename),handles.jedit_log,'useicon',handles.iconlist.status.stop);
 setappdata(handles.figure,'handles',handles);
 

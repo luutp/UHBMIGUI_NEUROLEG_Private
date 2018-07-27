@@ -129,6 +129,12 @@ end
 mycap = class_EEGcap('layout','EOG_Neuroleg','locsfile',locsfile,'elecfile',elecfile);
 EEGraw.EEGcap = mycap;
 EEGraw.chanlocs = pop_chanedit([], 'load',{mycap.elecfile.fullfilename, 'filetype', 'autodetect'});
+if size(EEGraw.data,1)==64
+    EEGraw.EOGdata = EEGraw.data(mycap.chlabel.EOG,:);
+    EEGraw.rawdata = EEGraw.data;
+    EEGraw.data = EEGraw.data(setdiff(1:64,mycap.chlabel.EOG),:);
+    EEGraw.nbchan = size(EEGraw.data,1);
+end
 outputfile = class_FileIO('filedir',processdir,'filename',inputfile.filename);
 filename = outputfile.filename;
 outputfile.savevars(EEGraw,mycap,filename);
