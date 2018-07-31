@@ -280,6 +280,10 @@ EEGin = evalin('base','EEGraw');
 filterobj = class_filter('input',EEGin,'fs',EEGin.srate,'cutoff',0.1,'type','high',...
     'method','filtfilt','order',4);
 EEGout = filterobj.execute;
+if isfield(mycap.chlabel,'EOG')
+    EEGout.uh_EOG = mycap.chlabel.EOG;
+    EEGout.uh_chlabel = mycap.chlabel;
+end
 assignin('base','EEGprocess',EEGout);
 %====
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
@@ -456,6 +460,160 @@ assignin('base','EEGprocess',EEGout);
 %====
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
 
+function UHBMIGUI_EEG_ScanPoorfitICs(handles,varargin)
+[stacktrace, ~]=dbstack;
+thisFuncName=stacktrace(1).name;
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+% --------
+EEGprocess = evalin('base','EEGprocess');
+% Dipfit to remove bad ICs.
+poordipfit.model  = dipfit_reject(EEGprocess.dipfit.model, 0.3);
+for i=1:length(poordipfit.model)
+    poordippos(i)= isempty(poordipfit.model(i).posxyz);
+end
+poorfitdip=find(poordippos);
+EEGprocess.uh_ICsPoorfit = poorfitdip;
+mycap = evalin('base','mycap');
+remdip = setdiff(1:length(EEGprocess.chanlocs),poorfitdip); 
+tempmodel = EEGprocess.dipfit.model;
+for i = 1 : length(remdip)
+    tempmodel(remdip(i)).posxyz = [0,0,0];
+    tempmodel(remdip(i)).momxyz = [0,0,0];
+end
+% Visualization
+% dipplot(tempmodel,'mri',EEGprocess.dipfit.mrifile,'summary','off','num','on','verbose','off');
+% pop_topoplot(EEGprocess,0,poorfitdip,'',0,1);
+
+% EEGcleanPoorfit = EEGprocess;
+% EEGcleanPoorfit = pop_subcomp(EEGcleanPoorfit,poorfitdip,0);
+% EEGcleanPoorfit.icaact=EEGcleanPoorfit.icaweights*EEGcleanPoorfit.icasphere*EEGcleanPoorfit.data;
+% EEGcleanPoorfit.uh_badchans = EEGprocess.reject.uh_badchannel;
+% EEGcleanPoorfit.uh_ICsPoorfit = poorfitdip;
+% assignin('base','EEGcleanPoorfit',EEGcleanPoorfit);
+assignin('base','EEGprocess',EEGprocess);
+evalin('base','clearvars -except mycap FileObj EEGcleanPoorfit EEGraw EEGprocess');
+fprintf('DONE:%s.\n',thisFuncName);
+% --------
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
+function UHBMIGUI_EEG_ScanOutsideBrainICs(handles,varargin)
+[stacktrace, ~]=dbstack;
+thisFuncName=stacktrace(1).name;
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+% --------
+EEGprocess = evalin('base','EEGprocess');
+maindir = uh_fileparts('fullpath',mfilename('fullpath'),'level',2);
+mriboundfile = class_FileIO('fullfilename',...
+    fullfile(maindir,'uhlib\Graphics\GUI','uh_gui_mri_boundary_Extended_data.mat'));
+mriboundfile.loadtows;
+mribound = evalin('base','mribound');
+remdip = setdiff(1:length(EEGprocess.chanlocs), EEGprocess.uh_ICsPoorfit);
+[insideBrainComp, outsideBrainComp] = mriBoundaryCheck(remdip, mribound);
+% Show Remaining dipoles after removing poorfit
+% hideDip = EEGprocess.uh_ICsPoorfit;
+% dipplotHide(EEGprocess.dipfit.model,hideDip);
+% Show outside brain dipoles
+% hideDip = setdiff(1:length(EEGprocess.chanlocs),outsideBrainComp);
+% dipplotHide(EEGprocess.dipfit.model,hideDip);
+
+% ICsOutsideBrain = luu_selectcomps(EEGprocess,remdip,...
+%     'rejcomp',outsideBrainComp,...
+%     'auto',1,'nosedir','+Y');
+ICsOutsideBrain = outsideBrainComp;
+EEGprocess.uh_ICsOutsideBrain = ICsOutsideBrain;
+assignin('base','EEGprocess',EEGprocess);
+evalin('base','clearvars -except mycap FileObj EEGraw EEGprocess');
+allfig=findall(0,'type','figure');
+printfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_PRINT');
+avatarfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_AVATAR');
+neurolegfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_NEUROLEG');
+clcfig=setdiff(allfig,[printfig,avatarfig,neurolegfig]);
+close(clcfig);
+fprintf('DONE:%s.\n',thisFuncName);
+% --------
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
+function UHBMIGUI_EEG_ScanEOGICs(handles,varargin)
+[stacktrace, ~]=dbstack;
+thisFuncName=stacktrace(1).name;
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+% --------
+EEGprocess = evalin('base','EEGprocess');
+maindir = uh_fileparts('fullpath',mfilename('fullpath'),'level',2);
+mriboundfile = class_FileIO('fullfilename',...
+    fullfile(maindir,'uhlib\Graphics\GUI','uh_gui_mri_boundary_EOG_data.mat'));
+mriboundfile.loadtows;
+mribound = evalin('base','mribound');
+allDip = 1:length(EEGprocess.chanlocs);
+poorNOut = [EEGprocess.uh_ICsPoorfit,EEGprocess.uh_ICsOutsideBrain];
+remdip = setdiff(allDip, poorNOut);
+[EOGdip, ~] = mriBoundaryCheck(remdip, mribound);
+% Visualization
+% Show Remaining dipoles after removing poorfit and outside the brain ICs
+% dipplotHide(EEGprocess.dipfit.model,poorNOut);
+% Show EOG brain dipoles
+% dipplotHide(EEGprocess.dipfit.model,setdiff(allDip,EOGdip));
+
+% ICsEOG = luu_selectcomps(EEGprocess,remdip,...
+%     'rejcomp',EOGdip,...
+%     'auto',1,'nosedir','+Y');
+ICsEOG = EOGdip;
+EEGprocess.uh_ICsEOG = ICsEOG;
+assignin('base','EEGprocess',EEGprocess);
+evalin('base','clearvars -except mycap FileObj EEGraw EEGprocess');
+allfig=findall(0,'type','figure');
+printfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_PRINT');
+avatarfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_AVATAR');
+neurolegfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_NEUROLEG');
+clcfig=setdiff(allfig,[printfig,avatarfig,neurolegfig]);
+close(clcfig);
+fprintf('DONE:%s.\n',thisFuncName);
+% --------
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
+function UHBMIGUI_EEG_DetectMuscleICs(handles,varargin)
+[stacktrace, ~]=dbstack;
+thisFuncName=stacktrace(1).name;
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.play);
+% --------
+EEGprocess = evalin('base','EEGprocess');
+maindir = uh_fileparts('fullpath',mfilename('fullpath'),'level',2);
+mriboundfile = class_FileIO('fullfilename',...
+    fullfile(maindir,'uhlib\Graphics\GUI','uh_gui_mri_boundary_Extended_data.mat'));
+mriboundfile.loadtows;
+allDip = 1:length(EEGprocess.chanlocs);
+poorfitDip = EEGprocess.uh_ICsPoorfit;
+outDip = EEGprocess.uh_ICsOutsideBrain;
+eogDip = EEGprocess.uh_ICsEOG;
+badDip = [poorfitDip,outDip,eogDip];
+remdip = setdiff(allDip, badDip);
+% Visualization
+% Show Remaining dipoles after removing poorfit and outside the brain ICs
+dipplotHide(EEGprocess.dipfit.model,badDip);
+if isfield(EEGprocess,'uh_ICsEMG')
+    fprintf('Current Results: '); 
+    display(EEGprocess.uh_ICsEMG); 
+    fprintf('\n');
+    ICsEMG = EEGprocess.uh_ICsEMG;
+else
+    ICsEMG = [];
+end
+ICsEMG = luu_selectcomps(EEGprocess,remdip,...
+    'rejcomp',ICsEMG,...
+    'auto',0,'nosedir','+Y');
+EEGprocess.uh_ICsEMG = ICsEMG;
+assignin('base','EEGprocess',EEGprocess);
+evalin('base','clearvars -except mycap FileObj EEGraw EEGprocess');
+allfig=findall(0,'type','figure');
+printfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_PRINT');
+avatarfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_AVATAR');
+neurolegfig=findall(0, '-depth',1, 'type','figure', 'Name','UHBMIGUI_NEUROLEG');
+clcfig=setdiff(allfig,[printfig,avatarfig,neurolegfig]);
+close(clcfig);
+fprintf('DONE:%s.\n',thisFuncName);
+% --------
+logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.status.check);
+
 function UHBMIGUI_EEG_RemoveICs(handles,varargin)
 [stacktrace, ~]=dbstack;
 thisFuncName=stacktrace(1).name;
@@ -478,7 +636,9 @@ mycap = evalin('base','mycap');
 
 assignin('base','EEGprocess',EEGprocess);
 remdip = setdiff(1:length(EEGprocess.chanlocs),rejectdip); 
-dipplot(EEGprocess.dipfit.model(remdip),'mri',EEGprocess.dipfit.mrifile,'summary','on','num','on','verbose','off');
+% dipplot(EEGprocess.dipfit.model(remdip),'mri',EEGprocess.dipfit.mrifile,'summary','on','num','on','verbose','off');
+dipplot(EEGprocess.dipfit.model(remdip),'mri',EEGprocess.dipfit.mrifile,'summary','off','num','on','verbose','off');
+
 hold on;
 % eyelim = [-51, -72;,...
 %           91,8];
@@ -774,7 +934,47 @@ fprintf('DONE:%s.\n',thisFuncName);
 % --------
 logMessage(sprintf('%s',thisFuncName),handles.jedit_log, 'useicon',handles.iconlist.action.save);
 
+function dipplotHide(dipmodel, hideDip, varargin)
+boudaryPlot = get_varargin(varargin,'boundary',1);
 
+EEGprocess = evalin('base','EEGprocess');
+for i = 1 : length(hideDip)
+    dipmodel(hideDip(i)).posxyz = [0,0,0];
+    dipmodel(hideDip(i)).momxyz = [0,0,0];
+end
+dipplot(dipmodel,'mri',EEGprocess.dipfit.mrifile,'summary','off','num','on','verbose','off');
+if boudaryPlot == 1
+    hold on;
+    mribound = evalin('base','mribound');
+    plot3(mribound.xy(:,1),mribound.xy(:,2),zeros(1,size(mribound.xy,1)),'color','r');
+    plot3(zeros(1,size(mribound.yz,1)),mribound.yz(:,1),mribound.yz(:,2),'color','r');
+    plot3(mribound.xz(:,1),zeros(1,size(mribound.xz,1)),mribound.xz(:,2),'color','r');
+end
 
-
+function [inside, outside] = mriBoundaryCheck(inputDip,mribound)
+EEGprocess = evalin('base','EEGprocess');
+inside = [];
+outside = [];
+for i = 1 : length(inputDip)
+    for j = 1 : 3
+        if j == 1
+            dipos = EEGprocess.dipfit.model(inputDip(i)).posxyz([1,2]);
+            node = mribound.xy;
+        elseif j == 2
+            dipos = EEGprocess.dipfit.model(inputDip(i)).posxyz([2,3]);
+            node = mribound.yz;
+        elseif j == 3
+            dipos = EEGprocess.dipfit.model(inputDip(i)).posxyz([1,3]);
+            node = mribound.xz;
+        end
+        n = size(node,1);
+        cnect  = [(1:n-1)' (2:n)'; n 1];
+        insideCheck = inpoly(dipos,node,cnect);
+        if insideCheck == 0
+            outside = [outside, inputDip(i)];            
+            break;
+        end        
+    end        
+end
+inside = setdiff(inputDip,outside);
 
